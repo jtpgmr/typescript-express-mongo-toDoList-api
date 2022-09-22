@@ -1,9 +1,38 @@
 import { NextFunction, Request, Response } from 'express';
 import dotenv from 'dotenv';
+import { ZodError } from 'zod';
 
+import RequestValidator from './interfaces/RequestValidator';
 import ErrorResponse from './interfaces/ErrorResponse';
 
 dotenv.config();
+
+export const validateRequest = (validator: RequestValidator) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (validator.params) {
+        req.params = await validator.params.parseAsync(req.params);
+      }
+      if (validator.body) {
+        // checks info in req.body
+        // parseAync to parse the Zod validator
+        req.body = await validator.body.parseAsync(req.body);
+      }
+      if (validator.query) {
+        req.query = await validator.query.parseAsync(req.query);
+      }
+      next();
+    } catch (error) {
+      // ZodError is a client-side error
+      // 422: Unprocessable Entity
+      if (error instanceof ZodError) {
+        res.status(422);
+      }
+      next(error);
+    }
+  };
+};
+
 
 export const notFound = (req: Request, res: Response, next: NextFunction) => {
   res.status(404);
